@@ -31,7 +31,6 @@ struct CalculatorView: View {
                 .padding(.horizontal, 24)
                 .minimumScaleFactor(0.4)
                 .lineLimit(1)
-                .contentTransition(.numericText())
 
             VStack(spacing: 12) {
                 ForEach(keys, id: \.self) { row in
@@ -62,19 +61,19 @@ struct CalculatorView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 68)
                 .foregroundStyle(isOp ? Color(red: 0.72, green: 0.78, blue: 1) : .white)
-                .scaleEffect(pressed == key ? 0.9 : 1)
+                .scaleEffect(pressed == key ? 0.94 : 1)
+                .background(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(Color.white.opacity(isOp ? 0.18 : 0.12))
+                )
         }
         .buttonStyle(.plain)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private func tap(_ key: String) {
         pressed = key
         Haptics.tap()
-        Task {
-            try? await Task.sleep(for: .milliseconds(80))
-            pressed = nil
-        }
+        pressed = nil
 
         switch key {
         case "C":

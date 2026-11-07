@@ -50,11 +50,11 @@ struct RootView: View {
 struct MainShell: View {
     @Binding var tab: AppTab
     var store: AppStore
-    @State private var taskPath: [TodoItem] = []
-    @State private var notePath: [NoteItem] = []
+    @State private var openedTodo: TodoItem?
+    @State private var openedNote: NoteItem?
 
     private var showsFooter: Bool {
-        taskPath.isEmpty && notePath.isEmpty
+        openedTodo == nil && openedNote == nil
     }
 
     var body: some View {
@@ -65,9 +65,9 @@ struct MainShell: View {
             Group {
                 switch tab {
                 case .tasks:
-                    TasksView(store: store, path: $taskPath)
+                    TasksView(store: store, opened: $openedTodo)
                 case .notes:
-                    NotesView(store: store, path: $notePath)
+                    NotesView(store: store, opened: $openedNote)
                 case .calculator:
                     CalculatorView()
                 }
@@ -94,7 +94,6 @@ struct MainShell: View {
 
 struct GlassFooter: View {
     @Binding var tab: AppTab
-    @Namespace private var glassNS
     @State private var barWidth: CGFloat = 0
     @State private var fingerX: CGFloat?
 
@@ -114,56 +113,49 @@ struct GlassFooter: View {
     }
 
     var body: some View {
-        LiquidGlassContainer(spacing: 20) {
-            ZStack(alignment: .leading) {
-                if itemWidth > 0 {
-                    Capsule()
-                        .fill(.white.opacity(0.22))
-                        .frame(width: itemWidth - 8, height: 54)
-                        .scaleEffect(fingerX == nil ? 1 : 1.1)
-                        .offset(x: highlightCenter - (itemWidth - 8) / 2)
-                        .liquidGlass(in: Capsule())
-                        .liquidGlassID("TabHighlight", in: glassNS)
-                        .animation(fingerX == nil ? .spring(response: 0.38, dampingFraction: 0.78) : .interactiveSpring(response: 0.18, dampingFraction: 0.86), value: highlightCenter)
-                }
+        ZStack(alignment: .leading) {
+            if itemWidth > 0 {
+                Capsule()
+                    .fill(Color.white.opacity(0.5))
+                    .frame(width: itemWidth - 8, height: 54)
+                    .scaleEffect(fingerX == nil ? 1 : 1.08)
+                    .offset(x: highlightCenter - (itemWidth - 8) / 2)
+            }
 
-                HStack(spacing: 0) {
-                    ForEach(AppTab.allCases) { item in
-                        let active = abs(highlightCenter - center(of: item)) < itemWidth / 2
-                        VStack(spacing: 4) {
-                            Image(systemName: item.icon)
-                                .font(.system(size: 18, weight: .semibold))
-                                .symbolEffect(.bounce, value: active && fingerX != nil)
-                            Text(item.title)
-                                .font(.caption2.weight(.semibold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 11)
-                        .scaleEffect(active ? 1.12 : 1)
-                        .foregroundStyle(active ? AppTheme.indigo : AppTheme.ink.opacity(0.72))
-                        .contentShape(Rectangle())
-                        .liquidGlassID(item.rawValue, in: glassNS)
-                        .animation(.spring(response: 0.28, dampingFraction: 0.7), value: active)
+            HStack(spacing: 0) {
+                ForEach(AppTab.allCases) { item in
+                    let active = abs(highlightCenter - center(of: item)) < itemWidth / 2
+                    VStack(spacing: 4) {
+                        Image(systemName: item.icon)
+                            .font(.system(size: 18, weight: .semibold))
+                        Text(item.title)
+                            .font(.caption2.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .scaleEffect(active ? 1.1 : 1)
+                    .foregroundStyle(active ? AppTheme.indigo : AppTheme.ink.opacity(0.75))
+                    .contentShape(Rectangle())
+                    .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.8), value: active)
                 }
             }
-            .padding(6)
-            .background {
-                GeometryReader { geo in
-                    Color.clear
-                        .onAppear { barWidth = geo.size.width }
-                        .onChange(of: geo.size.width) { _, width in
-                            barWidth = width
-                        }
-                }
-            }
-            .contentShape(Capsule())
-            .gesture(telegramDrag)
-            .liquidGlass(in: Capsule())
-            .liquidGlassID("TabBar", in: glassNS)
         }
+        .padding(6)
+        .background {
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { barWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { _, width in
+                        barWidth = width
+                    }
+            }
+        }
+        .contentShape(Capsule())
+        .gesture(telegramDrag)
+        .liquidGlass(in: Capsule())
+        .animation(fingerX == nil ? .spring(response: 0.38, dampingFraction: 0.78) : nil, value: highlightCenter)
     }
 
     private func center(of item: AppTab) -> CGFloat {

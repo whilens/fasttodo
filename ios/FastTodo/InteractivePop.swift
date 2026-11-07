@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Страница едет 1:1 за пальцем.
-/// Если порог/скорость пройдены — доезжает и закрывается, иначе пружиной возвращается.
+/// Страница едет 1:1 за пальцем. Под ней сразу виден список.
+/// Порог пройден — доезжает и закрывается. Нет — пружиной назад.
 struct InteractivePop<Content: View>: View {
-    @Environment(\.dismiss) private var dismiss
+    var onClose: () -> Void
     @ViewBuilder var content: Content
 
     @State private var dragX: CGFloat = 0
@@ -17,14 +17,13 @@ struct InteractivePop<Content: View>: View {
                 .offset(x: max(0, dragX))
                 .highPriorityGesture(popGesture(width: width))
         }
-        .background(AppTheme.card)
         .ignoresSafeArea(edges: .bottom)
     }
 
     private func popGesture(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 4)
             .onChanged { value in
-                let fromEdge = value.startLocation.x < 36 || dragging
+                let fromEdge = value.startLocation.x < 56 || dragging
                 let horizontal = abs(value.translation.width) > abs(value.translation.height) * 0.65
                 guard fromEdge, horizontal else { return }
                 dragging = true
@@ -41,15 +40,15 @@ struct InteractivePop<Content: View>: View {
                         dragX = width
                     }
                     Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(220))
-                        dismiss()
+                        try? await Task.sleep(for: .milliseconds(200))
+                        onClose()
                     }
                 } else {
                     withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
                         dragX = 0
                     }
+                    dragging = false
                 }
-                dragging = false
             }
     }
 }

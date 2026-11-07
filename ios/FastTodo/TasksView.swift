@@ -2,12 +2,12 @@ import SwiftUI
 
 struct TasksView: View {
     var store: AppStore
-    @Binding var path: [TodoItem]
+    @Binding var opened: TodoItem?
     @State private var text = ""
     @State private var bounceAdd = false
 
     var body: some View {
-        NavigationStack(path: $path) {
+        ZStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Задачи")
                     .font(.largeTitle.bold())
@@ -41,7 +41,7 @@ struct TasksView: View {
                     LazyVStack(spacing: 10) {
                         ForEach(Array(store.todos.enumerated()), id: \.element.id) { index, item in
                             TaskRow(item: item, index: index, onOpen: {
-                                path.append(item)
+                                opened = item
                             }, onDelete: {
                                 withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
                                     store.deleteTodo(item)
@@ -55,8 +55,12 @@ struct TasksView: View {
                 }
             }
             .background(Color(red: 0.82, green: 0.87, blue: 1).ignoresSafeArea())
-            .navigationDestination(for: TodoItem.self) { item in
-                TaskDetailView(store: store, item: store.todo(id: item.id) ?? item)
+
+            if let item = opened {
+                TaskDetailView(store: store, item: store.todo(id: item.id) ?? item) {
+                    opened = nil
+                }
+                .zIndex(1)
             }
         }
     }

@@ -3,19 +3,20 @@ import SwiftUI
 struct TaskDetailView: View {
     var store: AppStore
     let item: TodoItem
-    @Environment(\.dismiss) private var dismiss
+    var onClose: () -> Void
     @State private var title: String
 
-    init(store: AppStore, item: TodoItem) {
+    init(store: AppStore, item: TodoItem, onClose: @escaping () -> Void) {
         self.store = store
         self.item = item
+        self.onClose = onClose
         _title = State(initialValue: item.title)
     }
 
     var body: some View {
-        InteractivePop {
+        InteractivePop(onClose: onClose) {
             VStack(alignment: .leading, spacing: 16) {
-                BackHeader(title: "Задача") { dismiss() }
+                BackHeader(title: "Задача", onBack: onClose)
 
                 Text("Текст")
                     .font(.subheadline.weight(.semibold))
@@ -30,7 +31,7 @@ struct TaskDetailView: View {
                 Button("Сохранить") {
                     store.updateTodo(item, title: title)
                     Haptics.add()
-                    dismiss()
+                    onClose()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AppTheme.indigo)
@@ -42,26 +43,26 @@ struct TaskDetailView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(AppTheme.card.ignoresSafeArea())
         }
-        .navigationBarHidden(true)
     }
 }
 
 struct NoteDetailView: View {
     var store: AppStore
     let item: NoteItem
-    @Environment(\.dismiss) private var dismiss
+    var onClose: () -> Void
     @State private var text: String
 
-    init(store: AppStore, item: NoteItem) {
+    init(store: AppStore, item: NoteItem, onClose: @escaping () -> Void) {
         self.store = store
         self.item = item
+        self.onClose = onClose
         _text = State(initialValue: item.text)
     }
 
     var body: some View {
-        InteractivePop {
+        InteractivePop(onClose: onClose) {
             VStack(alignment: .leading, spacing: 16) {
-                BackHeader(title: "Заметка") { dismiss() }
+                BackHeader(title: "Заметка", onBack: onClose)
 
                 Text(item.createdAt, format: .dateTime.day().month().hour().minute())
                     .font(.subheadline)
@@ -76,7 +77,7 @@ struct NoteDetailView: View {
                 Button("Сохранить") {
                     store.updateNote(item, text: text)
                     Haptics.add()
-                    dismiss()
+                    onClose()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
@@ -88,6 +89,5 @@ struct NoteDetailView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(AppTheme.card.ignoresSafeArea())
         }
-        .navigationBarHidden(true)
     }
 }

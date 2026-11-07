@@ -2,11 +2,11 @@ import SwiftUI
 
 struct NotesView: View {
     var store: AppStore
-    @Binding var path: [NoteItem]
+    @Binding var opened: NoteItem?
     @State private var text = ""
 
     var body: some View {
-        NavigationStack(path: $path) {
+        ZStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Заметки")
                     .font(.largeTitle.bold())
@@ -45,7 +45,7 @@ struct NotesView: View {
                     LazyVStack(spacing: 10) {
                         ForEach(store.notes) { note in
                             Button {
-                                path.append(note)
+                                opened = note
                             } label: {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text(note.text)
@@ -61,7 +61,6 @@ struct NotesView: View {
                                 .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
                             }
                             .buttonStyle(.plain)
-                            .transition(.move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.96)))
                         }
                     }
                     .padding(.horizontal, 20)
@@ -69,8 +68,12 @@ struct NotesView: View {
                 }
             }
             .background(Color(red: 1, green: 0.90, blue: 0.78).ignoresSafeArea())
-            .navigationDestination(for: NoteItem.self) { item in
-                NoteDetailView(store: store, item: store.note(id: item.id) ?? item)
+
+            if let item = opened {
+                NoteDetailView(store: store, item: store.note(id: item.id) ?? item) {
+                    opened = nil
+                }
+                .zIndex(1)
             }
         }
     }

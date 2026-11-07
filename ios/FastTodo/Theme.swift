@@ -9,64 +9,30 @@ enum AppTheme {
     static let card = Color.white
 }
 
-struct LiquidGlassContainer<Content: View>: View {
-    var spacing: CGFloat = 20
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        if #available(iOS 26.0, *) {
-            GlassEffectContainer(spacing: spacing) {
-                content
-            }
-        } else {
-            content
-        }
-    }
-}
-
 extension View {
     @ViewBuilder
     func liquidGlass<S: Shape>(in shape: S) -> some View {
         if #available(iOS 26.0, *) {
-            self.glassEffect(.clear.interactive(), in: shape)
+            self.glassEffect(.regular.tint(.white.opacity(0.28)).interactive(), in: shape)
         } else {
             self
                 .background {
                     ZStack {
-                        shape.fill(.ultraThinMaterial.opacity(0.45))
-                        shape.fill(
-                            LinearGradient(
-                                colors: [
-                                    .white.opacity(0.32),
-                                    .white.opacity(0.04),
-                                    .white.opacity(0.14),
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        shape.fill(.ultraThinMaterial.opacity(0.78))
+                        shape.fill(Color.white.opacity(0.22))
                     }
                 }
                 .overlay {
                     shape.stroke(
                         LinearGradient(
-                            colors: [.white.opacity(0.75), .white.opacity(0.12)],
+                            colors: [.white.opacity(0.8), .white.opacity(0.18)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 0.8
+                        lineWidth: 1
                     )
                 }
-                .shadow(color: .black.opacity(0.16), radius: 22, y: 8)
-        }
-    }
-
-    @ViewBuilder
-    func liquidGlassID(_ id: String, in namespace: Namespace.ID) -> some View {
-        if #available(iOS 26.0, *) {
-            self.glassEffectID(id, in: namespace)
-        } else {
-            self
+                .shadow(color: .black.opacity(0.2), radius: 20, y: 8)
         }
     }
 }
