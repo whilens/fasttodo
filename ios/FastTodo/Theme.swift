@@ -33,11 +33,11 @@ extension View {
                     }
                 }
                 .overlay {
-                    shape.strokeBorder(
+                    shape.stroke(
                         LinearGradient(
                             colors: [.white.opacity(0.7), .white.opacity(0.12)],
                             startPoint: .topLeading,
-                            endPoint: .bottomTrailing,
+                            endPoint: .bottomTrailing
                         ),
                         lineWidth: 0.8
                     )
