@@ -1,0 +1,99 @@
+# Сборка unsigned .ipa для нативного SwiftUI (без Capacitor и без Apple-сертификатов).
+# Артефакт: Actions → workflow run → unsigned-ipa-...
+# Установка на устройство потребует последующего resign.
+#
+# macOS в Actions дорогой (×10 к минутам). Сборка только вручную: Run workflow.
+name: Build iOS unsigned ipa
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build iOS app without code signing
+        run: |
+          set -euo pipefail
+
+          PROJECT="ios/FastTodo.xcodeproj"
+          SCHEME="FastTodo"
+          DERIVED_DATA="$PWD/ios/DerivedData"
+
+          if [ ! -d "$PROJECT" ]; then
+            echo "Xcode project not found: $PROJECT"
+            ls -la ios || true
+            exit 1
+          fi
+
+          rm -rf "$DERIVED_DATA"
+
+          XCODE_ARGS=(
+            -project "$PROJECT"
+            -scheme "$SCHEME"
+            -configuration Release
+            -sdk iphoneos
+            -destination "generic/platform=iOS"
+            -derivedDataPath "$DERIVED_DATA"
+            build
+            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGN_IDENTITY=""
+            DEVELOPMENT_TEAM=""
+          )
+
+          echo "Using native Swift Xcode project"
+          xcodebuild "${XCODE_ARGS[@]}"
+
+          APP_BUNDLE="$(find "$DERIVED_DATA/Build/Products" -type d -name 'FastTodo.app' | head -n 1 || true)"
+          if [ -z "$APP_BUNDLE" ] || [ ! -d "$APP_BUNDLE" ]; then
+            APP_BUNDLE="$(find "$DERIVED_DATA/Build/Products" -type d -name '*.app' | head -n 1 || true)"
+          fi
+
+          if [ -z "$APP_BUNDLE" ] || [ ! -d "$APP_BUNDLE" ]; then
+            echo "No .app bundle found after xcodebuild"
+            find "$DERIVED_DATA" -maxdepth 6 -type d | head -80 || true
+            exit 1
+          fi
+
+          echo "Built app bundle: $APP_BUNDLE"
+          echo "APP_BUNDLE=$APP_BUNDLE" >> "$GITHUB_ENV"
+
+      - name: Package unsigned .ipa
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_BUNDLE:-}" ] || [ ! -d "$APP_BUNDLE" ]; then
+            echo "APP_BUNDLE is missing or not a directory: ${APP_BUNDLE:-<empty>}"
+            exit 1
+          fi
+
+          APP_NAME="$(basename "$APP_BUNDLE" .app)"
+          VERSION="$(git rev-parse --short HEAD)"
+
+          /usr/bin/codesign --remove-signature "$APP_BUNDLE" || true
+          rm -rf "$APP_BUNDLE/_CodeSignature" || true
+          rm -f "$APP_BUNDLE/embedded.mobileprovision" || true
+
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "$APP_BUNDLE" "Payload/${APP_NAME}.app"
+
+          /usr/bin/zip -r9 "unsigned-${APP_NAME}-${VERSION}.ipa" Payload
+
+      - name: Upload unsigned .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-ipa-${{ github.run_number }}-${{ github.sha }}
+          path: unsigned-*.ipa
+          retention-days: 30
