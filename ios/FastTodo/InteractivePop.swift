@@ -1,31 +1,66 @@
 import SwiftUI
 
-/// Страница едет 1:1 за пальцем. Под ней сразу виден список.
-/// Порог пройден — доезжает и закрывается. Нет — пружиной назад.
-struct InteractivePop<Content: View>: View {
+struct CoverHost<List: View, Detail: View>: View {
+    var isPresented: Bool
     var onClose: () -> Void
-    @ViewBuilder var content: Content
+    @ViewBuilder var list: List
+    @ViewBuilder var detail: Detail
 
     @State private var dragX: CGFloat = 0
+    @State private var width: CGFloat = 390
     @State private var dragging = false
+
+    private var progress: CGFloat {
+        guard isPresented, width > 0 else { return 0 }
+        return max(0, min(1, 1 - dragX / width))
+    }
 
     var body: some View {
         GeometryReader { geo in
-            let width = geo.size.width
-            content
-                .frame(width: width, height: geo.size.height)
-                .offset(x: max(0, dragX))
-                .highPriorityGesture(popGesture(width: width))
+            ZStack {
+                list
+                    .offset(x: isPresented ? -geo.size.width * 0.3 * progress : 0)
+                    .allowsHitTesting(!isPresented)
+
+                if isPresented {
+                    detail
+                        .offset(x: dragX)
+                        .gesture(swipeGesture)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .onAppear { width = geo.size.width }
+            .onChange(of: geo.size.width) { _, newWidth in
+                width = newWidth
+            }
+            .onChange(of: isPresented) { _, open in
+                if open {
+                    dragX = geo.size.width
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                        dragX = 0
+                    }
+                }
+            }
         }
-        .ignoresSafeArea(edges: .bottom)
+        .environment(\.coverDismiss, CoverDismissAction(close: dismissCover))
     }
 
-    private func popGesture(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 4)
+    private func dismissCover() {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.9)) {
+            dragX = width
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(220))
+            onClose()
+            dragX = 0
+        }
+    }
+
+    private var swipeGesture: some Gesture {
+        DragGesture(minimumDistance: 8)
             .onChanged { value in
-                let fromEdge = value.startLocation.x < 56 || dragging
-                let horizontal = abs(value.translation.width) > abs(value.translation.height) * 0.65
-                guard fromEdge, horizontal else { return }
+                let horizontal = value.translation.width > abs(value.translation.height)
+                guard horizontal else { return }
                 dragging = true
                 dragX = max(0, value.translation.width)
             }
@@ -33,48 +68,46 @@ struct InteractivePop<Content: View>: View {
                 let translation = max(0, value.translation.width)
                 let projected = max(0, value.predictedEndTranslation.width)
                 let passed = translation > width * 0.28 || projected > width * 0.5
-
                 if passed {
                     Haptics.selection()
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
-                        dragX = width
-                    }
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(200))
-                        onClose()
-                    }
+                    dismissCover()
                 } else {
                     withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
                         dragX = 0
                     }
-                    dragging = false
                 }
+                dragging = false
             }
     }
 }
 
-struct BackHeader: View {
-    let title: String
-    var onBack: () -> Void
+private struct CoverDismissKey: EnvironmentKey {
+    static let defaultValue = CoverDismissAction(close: {})
+}
+
+struct CoverDismissAction {
+    var close: () -> Void
+}
+
+extension EnvironmentValues {
+    var coverDismiss: CoverDismissAction {
+        get { self[CoverDismissKey.self] }
+        set { self[CoverDismissKey.self] = newValue }
+    }
+}
+
+struct GlassBackButton: View {
+    var action: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            Button(action: onBack) {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.body.weight(.semibold))
-                    Text("Назад")
-                }
-                .foregroundStyle(AppTheme.indigo)
-            }
-            Spacer()
-            Text(title)
-                .font(.headline)
+        Button(action: action) {
+            Image(systemName: "chevron.left")
+                .font(.body.weight(.bold))
                 .foregroundStyle(AppTheme.ink)
-            Spacer()
-            Color.clear.frame(width: 64)
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .buttonStyle(.plain)
+        .liquidGlass(in: Circle())
     }
 }

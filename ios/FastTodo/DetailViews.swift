@@ -3,20 +3,19 @@ import SwiftUI
 struct TaskDetailView: View {
     var store: AppStore
     let item: TodoItem
-    var onClose: () -> Void
+    @Environment(\.coverDismiss) private var coverDismiss
     @State private var title: String
 
-    init(store: AppStore, item: TodoItem, onClose: @escaping () -> Void) {
+    init(store: AppStore, item: TodoItem) {
         self.store = store
         self.item = item
-        self.onClose = onClose
         _title = State(initialValue: item.title)
     }
 
     var body: some View {
-        InteractivePop(onClose: onClose) {
+        ZStack(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: 16) {
-                BackHeader(title: "Задача", onBack: onClose)
+                Color.clear.frame(height: 52)
 
                 Text("Текст")
                     .font(.subheadline.weight(.semibold))
@@ -31,17 +30,22 @@ struct TaskDetailView: View {
                 Button("Сохранить") {
                     store.updateTodo(item, title: title)
                     Haptics.add()
-                    onClose()
+                    coverDismiss.close()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AppTheme.indigo)
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-                Spacer()
+                Spacer(minLength: 0)
             }
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(AppTheme.card.ignoresSafeArea())
+            .contentShape(Rectangle())
+
+            GlassBackButton { coverDismiss.close() }
+                .padding(.leading, 16)
+                .padding(.top, 8)
         }
     }
 }
@@ -49,20 +53,19 @@ struct TaskDetailView: View {
 struct NoteDetailView: View {
     var store: AppStore
     let item: NoteItem
-    var onClose: () -> Void
+    @Environment(\.coverDismiss) private var coverDismiss
     @State private var text: String
 
-    init(store: AppStore, item: NoteItem, onClose: @escaping () -> Void) {
+    init(store: AppStore, item: NoteItem) {
         self.store = store
         self.item = item
-        self.onClose = onClose
         _text = State(initialValue: item.text)
     }
 
     var body: some View {
-        InteractivePop(onClose: onClose) {
+        ZStack(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: 16) {
-                BackHeader(title: "Заметка", onBack: onClose)
+                Color.clear.frame(height: 52)
 
                 Text(item.createdAt, format: .dateTime.day().month().hour().minute())
                     .font(.subheadline)
@@ -77,17 +80,22 @@ struct NoteDetailView: View {
                 Button("Сохранить") {
                     store.updateNote(item, text: text)
                     Haptics.add()
-                    onClose()
+                    coverDismiss.close()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-                Spacer()
+                Spacer(minLength: 0)
             }
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(AppTheme.card.ignoresSafeArea())
+            .contentShape(Rectangle())
+
+            GlassBackButton { coverDismiss.close() }
+                .padding(.leading, 16)
+                .padding(.top, 8)
         }
     }
 }

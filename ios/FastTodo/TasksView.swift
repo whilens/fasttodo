@@ -7,62 +7,63 @@ struct TasksView: View {
     @State private var bounceAdd = false
 
     var body: some View {
-        ZStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Задачи")
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(AppTheme.ink)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
-
-                HStack(spacing: 8) {
-                    TextField("Новая задача", text: $text)
-                        .textFieldStyle(.roundedBorder)
-                        .foregroundStyle(AppTheme.ink)
-                        .submitLabel(.done)
-                        .onSubmit(add)
-
-                    Button("Добавить") { add() }
-                        .buttonStyle(.borderedProminent)
-                        .tint(AppTheme.indigo)
-                        .foregroundStyle(.white)
-                        .scaleEffect(bounceAdd ? 0.86 : 1)
-                }
-                .padding(.horizontal, 20)
-
-                if store.todos.isEmpty {
-                    Text("Пока нет задач")
-                        .foregroundStyle(AppTheme.inkMuted)
-                        .padding(.horizontal, 20)
-                        .transition(.opacity)
-                }
-
-                ScrollView {
-                    LazyVStack(spacing: 10) {
-                        ForEach(Array(store.todos.enumerated()), id: \.element.id) { index, item in
-                            TaskRow(item: item, index: index, onOpen: {
-                                opened = item
-                            }, onDelete: {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                                    store.deleteTodo(item)
-                                }
-                                Haptics.delete()
-                            })
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 110)
-                }
-            }
-            .background(Color(red: 0.82, green: 0.87, blue: 1).ignoresSafeArea())
-
+        CoverHost(isPresented: opened != nil, onClose: { opened = nil }) {
+            taskList
+        } detail: {
             if let item = opened {
-                TaskDetailView(store: store, item: store.todo(id: item.id) ?? item) {
-                    opened = nil
-                }
-                .zIndex(1)
+                TaskDetailView(store: store, item: store.todo(id: item.id) ?? item)
             }
         }
+    }
+
+    private var taskList: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Задачи")
+                .font(.largeTitle.bold())
+                .foregroundStyle(AppTheme.ink)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+
+            HStack(spacing: 8) {
+                TextField("Новая задача", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .foregroundStyle(AppTheme.ink)
+                    .submitLabel(.done)
+                    .onSubmit(add)
+
+                Button("Добавить") { add() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AppTheme.indigo)
+                    .foregroundStyle(.white)
+                    .scaleEffect(bounceAdd ? 0.86 : 1)
+            }
+            .padding(.horizontal, 20)
+
+            if store.todos.isEmpty {
+                Text("Пока нет задач")
+                    .foregroundStyle(AppTheme.inkMuted)
+                    .padding(.horizontal, 20)
+                    .transition(.opacity)
+            }
+
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    ForEach(Array(store.todos.enumerated()), id: \.element.id) { index, item in
+                        TaskRow(item: item, index: index, onOpen: {
+                            opened = item
+                        }, onDelete: {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                                store.deleteTodo(item)
+                            }
+                            Haptics.delete()
+                        })
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 110)
+            }
+        }
+        .background(Color(red: 0.82, green: 0.87, blue: 1).ignoresSafeArea())
     }
 
     private func add() {

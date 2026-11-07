@@ -94,37 +94,46 @@ struct MainShell: View {
 
 struct GlassFooter: View {
     @Binding var tab: AppTab
-    @State private var barWidth: CGFloat = 0
+    @State private var innerWidth: CGFloat = 0
     @State private var fingerX: CGFloat?
+    @State private var dragging = false
+
+    private let inset: CGFloat = 6
+    private let pillInset: CGFloat = 4
 
     private var selectedIndex: Int {
         AppTab.allCases.firstIndex(of: tab) ?? 0
     }
 
     private var itemWidth: CGFloat {
-        barWidth > 0 ? barWidth / CGFloat(AppTab.allCases.count) : 0
+        innerWidth > 0 ? innerWidth / CGFloat(AppTab.allCases.count) : 0
     }
 
-    private var highlightCenter: CGFloat {
-        if let fingerX, itemWidth > 0 {
-            return min(max(fingerX, itemWidth / 2), barWidth - itemWidth / 2)
+    private var pillWidth: CGFloat {
+        max(0, itemWidth - pillInset * 2)
+    }
+
+    private var highlightX: CGFloat {
+        if dragging, let fingerX, itemWidth > 0 {
+            let center = min(max(fingerX, itemWidth / 2), innerWidth - itemWidth / 2)
+            return center - pillWidth / 2
         }
-        return itemWidth * (CGFloat(selectedIndex) + 0.5)
+        return CGFloat(selectedIndex) * itemWidth + pillInset
     }
 
     var body: some View {
         ZStack(alignment: .leading) {
-            if itemWidth > 0 {
+            if pillWidth > 0 {
                 Capsule()
                     .fill(Color.white.opacity(0.5))
-                    .frame(width: itemWidth - 8, height: 54)
-                    .scaleEffect(fingerX == nil ? 1 : 1.08)
-                    .offset(x: highlightCenter - (itemWidth - 8) / 2)
+                    .frame(width: pillWidth, height: 54)
+                    .scaleEffect(dragging ? 1.06 : 1)
+                    .offset(x: highlightX)
             }
 
             HStack(spacing: 0) {
                 ForEach(AppTab.allCases) { item in
-                    let active = abs(highlightCenter - center(of: item)) < itemWidth / 2
+                    let active = item == tab || (dragging && tab(at: fingerX ?? 0) == item)
                     VStack(spacing: 4) {
                         Image(systemName: item.icon)
                             .font(.system(size: 18, weight: .semibold))
@@ -135,56 +144,58 @@ struct GlassFooter: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 11)
-                    .scaleEffect(active ? 1.1 : 1)
+                    .scaleEffect(active ? 1.08 : 1)
                     .foregroundStyle(active ? AppTheme.indigo : AppTheme.ink.opacity(0.75))
                     .contentShape(Rectangle())
-                    .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.8), value: active)
                 }
             }
         }
-        .padding(6)
         .background {
             GeometryReader { geo in
                 Color.clear
-                    .onAppear { barWidth = geo.size.width }
+                    .onAppear { innerWidth = geo.size.width }
                     .onChange(of: geo.size.width) { _, width in
-                        barWidth = width
+                        innerWidth = width
                     }
             }
         }
-        .contentShape(Capsule())
-        .gesture(telegramDrag)
+        .contentShape(Rectangle())
+        .gesture(tabGesture)
+        .padding(inset)
         .liquidGlass(in: Capsule())
-        .animation(fingerX == nil ? .spring(response: 0.38, dampingFraction: 0.78) : nil, value: highlightCenter)
+        .animation(dragging ? nil : .spring(response: 0.36, dampingFraction: 0.8), value: highlightX)
+        .animation(.spring(response: 0.28, dampingFraction: 0.78), value: tab)
     }
 
-    private func center(of item: AppTab) -> CGFloat {
-        guard let index = AppTab.allCases.firstIndex(of: item) else { return 0 }
-        return itemWidth * (CGFloat(index) + 0.5)
-    }
-
-    private var telegramDrag: some Gesture {
+    private var tabGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
-                guard barWidth > 0 else { return }
-                fingerX = value.location.x
-                let next = tab(at: value.location.x)
-                if next != tab {
-                    tab = next
-                    Haptics.selection()
+                guard innerWidth > 0 else { return }
+                let moved = hypot(value.translation.width, value.translation.height) > 10
+                if moved {
+                    dragging = true
+                    fingerX = value.location.x
+                    let next = tab(at: value.location.x)
+                    if next != tab {
+                        tab = next
+                        Haptics.selection()
+                    }
                 }
             }
             .onEnded { value in
                 tab = tab(at: value.location.x)
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.76)) {
-                    fingerX = nil
+                let wasDragging = dragging
+                dragging = false
+                fingerX = nil
+                if !wasDragging {
+                    Haptics.tap()
                 }
             }
     }
 
     private func tab(at x: CGFloat) -> AppTab {
-        guard barWidth > 0 else { return tab }
-        let clamped = min(max(x, 0), barWidth - 1)
+        guard innerWidth > 0 else { return tab }
+        let clamped = min(max(x, 0), innerWidth - 1)
         let index = Int(clamped / itemWidth)
         return AppTab.allCases[min(max(index, 0), AppTab.allCases.count - 1)]
     }
