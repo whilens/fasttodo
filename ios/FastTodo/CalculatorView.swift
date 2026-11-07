@@ -61,7 +61,7 @@ struct CalculatorView: View {
                 .font(.title2.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .frame(height: 68)
-                .foregroundStyle(isOp ? AppTheme.indigo : .primary)
+                .foregroundStyle(isOp ? Color(red: 0.72, green: 0.78, blue: 1) : .white)
                 .scaleEffect(pressed == key ? 0.9 : 1)
         }
         .buttonStyle(.plain)

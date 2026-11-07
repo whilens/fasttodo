@@ -1,6 +1,6 @@
 import Foundation
 
-struct TodoItem: Identifiable, Codable, Equatable {
+struct TodoItem: Identifiable, Codable, Equatable, Hashable {
     var id: UUID
     var title: String
 
@@ -10,7 +10,7 @@ struct TodoItem: Identifiable, Codable, Equatable {
     }
 }
 
-struct NoteItem: Identifiable, Codable, Equatable {
+struct NoteItem: Identifiable, Codable, Equatable, Hashable {
     var id: UUID
     var text: String
     var createdAt: Date
@@ -57,6 +57,28 @@ final class AppStore {
     func deleteNote(_ item: NoteItem) {
         notes.removeAll { $0.id == item.id }
         saveNotes()
+    }
+
+    func updateTodo(_ item: TodoItem, title: String) {
+        let value = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, let index = todos.firstIndex(where: { $0.id == item.id }) else { return }
+        todos[index].title = value
+        saveTodos()
+    }
+
+    func updateNote(_ item: NoteItem, text: String) {
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, let index = notes.firstIndex(where: { $0.id == item.id }) else { return }
+        notes[index].text = value
+        saveNotes()
+    }
+
+    func todo(id: UUID) -> TodoItem? {
+        todos.first { $0.id == id }
+    }
+
+    func note(id: UUID) -> NoteItem? {
+        notes.first { $0.id == id }
     }
 
     private func saveTodos() { Self.save(todos, key: todosKey) }
