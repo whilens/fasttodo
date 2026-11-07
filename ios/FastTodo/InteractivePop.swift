@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// Страница едет 1:1 за пальцем.
+/// Если порог/скорость пройдены — доезжает и закрывается, иначе пружиной возвращается.
 struct InteractivePop<Content: View>: View {
     @Environment(\.dismiss) private var dismiss
     @ViewBuilder var content: Content
@@ -9,38 +11,41 @@ struct InteractivePop<Content: View>: View {
 
     var body: some View {
         GeometryReader { geo in
+            let width = geo.size.width
             content
-                .frame(width: geo.size.width, height: geo.size.height)
+                .frame(width: width, height: geo.size.height)
                 .offset(x: max(0, dragX))
-                .shadow(color: .black.opacity(dragX > 0 ? 0.22 : 0), radius: 18, x: -8)
-                .gesture(popGesture(width: geo.size.width))
+                .highPriorityGesture(popGesture(width: width))
         }
         .background(AppTheme.card)
         .ignoresSafeArea(edges: .bottom)
     }
 
     private func popGesture(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 6)
+        DragGesture(minimumDistance: 4)
             .onChanged { value in
-                let fromEdge = value.startLocation.x < 28 || dragging
-                let horizontal = abs(value.translation.width) > abs(value.translation.height)
+                let fromEdge = value.startLocation.x < 36 || dragging
+                let horizontal = abs(value.translation.width) > abs(value.translation.height) * 0.65
                 guard fromEdge, horizontal else { return }
                 dragging = true
                 dragX = max(0, value.translation.width)
             }
             .onEnded { value in
-                let shouldPop = value.translation.width > width * 0.28
-                    || value.predictedEndTranslation.width > width * 0.45
-                if shouldPop {
+                let translation = max(0, value.translation.width)
+                let projected = max(0, value.predictedEndTranslation.width)
+                let passed = translation > width * 0.28 || projected > width * 0.5
+
+                if passed {
+                    Haptics.selection()
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
                         dragX = width
                     }
-                    Haptics.selection()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(220))
                         dismiss()
                     }
                 } else {
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                    withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
                         dragX = 0
                     }
                 }

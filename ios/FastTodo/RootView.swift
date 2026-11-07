@@ -94,82 +94,106 @@ struct MainShell: View {
 
 struct GlassFooter: View {
     @Binding var tab: AppTab
+    @Namespace private var glassNS
     @State private var barWidth: CGFloat = 0
-    @State private var isDragging = false
+    @State private var fingerX: CGFloat?
 
     private var selectedIndex: Int {
         AppTab.allCases.firstIndex(of: tab) ?? 0
     }
 
-    var body: some View {
-        let tabs = AppTab.allCases
+    private var itemWidth: CGFloat {
+        barWidth > 0 ? barWidth / CGFloat(AppTab.allCases.count) : 0
+    }
 
-        HStack(spacing: 0) {
-            ForEach(tabs) { item in
-                VStack(spacing: 4) {
-                    Image(systemName: item.icon)
-                        .font(.system(size: 18, weight: .semibold))
-                    Text(item.title)
-                        .font(.caption2.weight(.semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+    private var highlightCenter: CGFloat {
+        if let fingerX, itemWidth > 0 {
+            return min(max(fingerX, itemWidth / 2), barWidth - itemWidth / 2)
+        }
+        return itemWidth * (CGFloat(selectedIndex) + 0.5)
+    }
+
+    var body: some View {
+        LiquidGlassContainer(spacing: 20) {
+            ZStack(alignment: .leading) {
+                if itemWidth > 0 {
+                    Capsule()
+                        .fill(.white.opacity(0.22))
+                        .frame(width: itemWidth - 8, height: 54)
+                        .scaleEffect(fingerX == nil ? 1 : 1.1)
+                        .offset(x: highlightCenter - (itemWidth - 8) / 2)
+                        .liquidGlass(in: Capsule())
+                        .liquidGlassID("TabHighlight", in: glassNS)
+                        .animation(fingerX == nil ? .spring(response: 0.38, dampingFraction: 0.78) : .interactiveSpring(response: 0.18, dampingFraction: 0.86), value: highlightCenter)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 11)
-                .foregroundStyle(tab == item ? AppTheme.indigo : AppTheme.ink.opacity(0.72))
-                .contentShape(Rectangle())
-            }
-        }
-        .padding(6)
-        .background(alignment: .leading) {
-            if barWidth > 0 {
-                Capsule()
-                    .fill(.white.opacity(0.28))
-                    .frame(width: itemWidth(in: barWidth) - 4, height: 52)
-                    .offset(x: CGFloat(selectedIndex) * itemWidth(in: barWidth) + 2)
-                    .animation(isDragging ? .interactiveSpring(response: 0.22, dampingFraction: 0.86) : .spring(response: 0.38, dampingFraction: 0.78), value: tab)
-            }
-        }
-        .background {
-            GeometryReader { geo in
-                Color.clear
-                    .onAppear { barWidth = geo.size.width }
-                    .onChange(of: geo.size.width) { _, width in
-                        barWidth = width
+
+                HStack(spacing: 0) {
+                    ForEach(AppTab.allCases) { item in
+                        let active = abs(highlightCenter - center(of: item)) < itemWidth / 2
+                        VStack(spacing: 4) {
+                            Image(systemName: item.icon)
+                                .font(.system(size: 18, weight: .semibold))
+                                .symbolEffect(.bounce, value: active && fingerX != nil)
+                            Text(item.title)
+                                .font(.caption2.weight(.semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .scaleEffect(active ? 1.12 : 1)
+                        .foregroundStyle(active ? AppTheme.indigo : AppTheme.ink.opacity(0.72))
+                        .contentShape(Rectangle())
+                        .liquidGlassID(item.rawValue, in: glassNS)
+                        .animation(.spring(response: 0.28, dampingFraction: 0.7), value: active)
                     }
+                }
             }
+            .padding(6)
+            .background {
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { barWidth = geo.size.width }
+                        .onChange(of: geo.size.width) { _, width in
+                            barWidth = width
+                        }
+                }
+            }
+            .contentShape(Capsule())
+            .gesture(telegramDrag)
+            .liquidGlass(in: Capsule())
+            .liquidGlassID("TabBar", in: glassNS)
         }
-        .contentShape(Capsule())
-        .gesture(telegramDrag)
-        .liquidGlass(in: Capsule())
+    }
+
+    private func center(of item: AppTab) -> CGFloat {
+        guard let index = AppTab.allCases.firstIndex(of: item) else { return 0 }
+        return itemWidth * (CGFloat(index) + 0.5)
     }
 
     private var telegramDrag: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
-                isDragging = true
                 guard barWidth > 0 else { return }
-                let next = tab(at: value.location.x, width: barWidth)
+                fingerX = value.location.x
+                let next = tab(at: value.location.x)
                 if next != tab {
                     tab = next
                     Haptics.selection()
                 }
             }
             .onEnded { value in
-                if barWidth > 0 {
-                    tab = tab(at: value.location.x, width: barWidth)
+                tab = tab(at: value.location.x)
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.76)) {
+                    fingerX = nil
                 }
-                isDragging = false
             }
     }
 
-    private func itemWidth(in total: CGFloat) -> CGFloat {
-        total / CGFloat(AppTab.allCases.count)
-    }
-
-    private func tab(at x: CGFloat, width: CGFloat) -> AppTab {
-        let clamped = min(max(x, 0), width - 1)
-        let index = Int(clamped / itemWidth(in: width))
+    private func tab(at x: CGFloat) -> AppTab {
+        guard barWidth > 0 else { return tab }
+        let clamped = min(max(x, 0), barWidth - 1)
+        let index = Int(clamped / itemWidth)
         return AppTab.allCases[min(max(index, 0), AppTab.allCases.count - 1)]
     }
 }
